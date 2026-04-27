@@ -14,13 +14,17 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
-# Hardening
-User=nobody
-Group=nogroup
-NoNewPrivileges=true
+# Runs as a dedicated 'escpos' user so the web GUI can write config.env
+# and call `sudo systemctl restart escpos-bridge` (sudoers entry created
+# by install.sh). install.sh creates the user.
+User=escpos
+Group=escpos
+
+# Hardening (relaxed enough that the web GUI can edit /etc/escpos-bridge/)
+NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/escpos-bridge
+ReadWritePaths=/var/lib/escpos-bridge /etc/escpos-bridge
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

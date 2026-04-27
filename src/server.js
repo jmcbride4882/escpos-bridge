@@ -18,6 +18,7 @@ import { classify } from './classify.js';
 import { extractReceipt } from './receipt-extract.js';
 import { extractKp } from './kp-extract.js';
 import { send, startSweepTimer, getQueueDepth } from './forwarder.js';
+import { startWebGui, recordIntercept, bumpPrinterStats } from './web.js';
 
 // Recent-prints cache for on-demand-2x mode (sales receipts only)
 const recentPrints = new Map();   // key = content-hash, value = { firstSeenAt, bytes, printer }
@@ -170,6 +171,15 @@ function startProxy(printer) {
       const httpKind = (printer.kind === 'receipt') ? 'receipt' : 'kp';
       try { await send(httpKind, payload); }
       catch (err) { console.error(`[${printer.name}] forward failed: ${err.message}`); }
+
+      // Update web UI stats
+      bumpPrinterStats(printer.name, total.length);
+      const summary = kind === 'sales' && extracted.invoice
+        ? `${extracted.invoice} · €${extracted.total}`
+        : kind === 'kp' || kind === 'bar'
+          ? `order ${extracted.order ?? '?'} · ${extracted.items?.length ?? 0} items`
+          : `${total.length}B`;
+      recordIntercept(printer.name, kind, summary);
     });
   });
 
@@ -206,6 +216,7 @@ for (const p of config.printers) {
 }
 
 startSweepTimer();
+startWebGui();
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => { console.log(`Got ${sig}, exiting`); process.exit(0); });

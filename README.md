@@ -63,16 +63,30 @@ sudo git clone https://github.com/jmcbride4882/escpos-bridge.git /opt/escpos-bri
 sudo bash /opt/escpos-bridge/install.sh
 ```
 
-### 4. Edit config
+### 4. Configure via web GUI
+
+Start the service once (it'll boot with default config):
 
 ```bash
-sudo nano /etc/escpos-bridge/config.env
+sudo systemctl start escpos-bridge
 ```
 
-Set (REQUIRED before starting):
-- `INTERCEPTOR_SECRET=` (must match the value on the Hetzner side)
-- `RECEIPT_UPSTREAM_HOST=` (the actual receipt printer IP — find via `nmap -p 9100 192.168.18.0/24` or check the till's printer settings)
-- Confirm `KP_UPSTREAM_HOST=192.168.18.100` (19th Hole kitchen — should already be right)
+Then open in your browser:
+
+```
+http://<pi-ip>:8080
+```
+
+Login: `admin` / `changeme` — you'll be prompted to change it.
+
+In the GUI:
+1. **Discover tab** → Run LAN scan → finds all printers on port 9100
+2. **Test print** → click an IP, send a test print, see which physical printer it is
+3. **Config tab** → Set web password, interceptor secret, fill printer IPs (or paste from scan)
+4. **Save** → click **Restart service** (button right there)
+5. **Status tab** → watch live as transactions flow
+
+No SSH needed after `start`.
 
 ### 5. Reconfigure the till
 

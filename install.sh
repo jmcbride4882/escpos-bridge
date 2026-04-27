@@ -54,15 +54,33 @@ echo "==> npm install"
 cd "$INSTALL_DIR"
 npm install --production
 
-# Step 5 — config dir + sample env
+# Step 5 — dedicated user (web GUI needs to edit config + restart service)
+if ! id escpos &>/dev/null; then
+  echo "==> creating 'escpos' user"
+  useradd --system --no-create-home --shell /usr/sbin/nologin escpos
+fi
+
+# Step 5b — config dir + sample env (owned by escpos user so web GUI can write)
 mkdir -p "$CONFIG_DIR"
 mkdir -p /var/lib/escpos-bridge
-chown nobody:nogroup /var/lib/escpos-bridge
+chown -R escpos:escpos "$CONFIG_DIR" /var/lib/escpos-bridge
+
+# Step 5c — sudoers entry: web GUI can restart its own service without password
+cat > /etc/sudoers.d/escpos-bridge <<'SUDOERS'
+escpos ALL=(root) NOPASSWD: /bin/systemctl restart escpos-bridge
+escpos ALL=(root) NOPASSWD: /bin/systemctl status escpos-bridge
+SUDOERS
+chmod 440 /etc/sudoers.d/escpos-bridge
 
 if [[ ! -f "$CONFIG_DIR/config.env" ]]; then
   echo "==> writing $CONFIG_DIR/config.env (EDIT BEFORE STARTING)"
   cat > "$CONFIG_DIR/config.env" <<'EOF'
-# escpos-bridge config — edit then `systemctl restart escpos-bridge`
+# escpos-bridge config — most users edit this via the web GUI at http://<pi>:8080
+# Manual edit: `sudo nano /etc/escpos-bridge/config.env` then `systemctl restart escpos-bridge`
+
+# ───── Web GUI ─────
+WEB_PORT=8080
+WEB_PASSWORD=changeme
 
 # ───── Required ─────
 # Shared secret for Hetzner auth (must match webhook server's INTERCEPTOR_SECRET)
@@ -130,11 +148,15 @@ systemctl enable "$SERVICE_NAME"
 echo
 echo "==> install complete."
 echo
+PI_IP="$(hostname -I | awk '{print $1}')"
 echo "Next:"
-echo "    1. Edit $CONFIG_DIR/config.env"
-echo "    2. Reconfigure your till to print to this Pi's IP:"
-echo "       - Receipt printer setting → $(hostname -I | awk '{print $1}'):9100"
-echo "       - Kitchen printer setting → $(hostname -I | awk '{print $1}'):9101"
-echo "    3. systemctl start $SERVICE_NAME"
-echo "    4. journalctl -fu $SERVICE_NAME    # follow logs"
+echo "    1. systemctl start $SERVICE_NAME"
+echo "    2. Open http://${PI_IP}:8080 in your browser"
+echo "       (login: admin / password: changeme — change it on first visit)"
+echo "    3. Run the LAN scan to find your printer IPs"
+echo "    4. Set the interceptor secret (must match Hetzner)"
+echo "    5. Save config + restart"
+echo "    6. Reconfigure your tills to print to ${PI_IP}:9100 (receipt) / :9101 (KP) / :9102 (bar)"
+echo
+echo "Alternatively, edit $CONFIG_DIR/config.env directly + systemctl restart $SERVICE_NAME"
 echo

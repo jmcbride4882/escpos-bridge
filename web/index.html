@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>escpos-bridge</title>
+  <style>
+    :root {
+      --bg: #0f1419; --panel: #1a2330; --border: #2a3441; --fg: #e6edf3;
+      --muted: #8b96a3; --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --err: #f85149;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.5 -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+    header { background: var(--panel); padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    header .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); }
+    header .badge.ok { color: var(--ok); border-color: var(--ok); }
+    header .badge.warn { color: var(--warn); border-color: var(--warn); }
+    nav { background: var(--panel); padding: 0 20px; border-bottom: 1px solid var(--border); display: flex; gap: 4px; }
+    nav button { background: none; border: none; padding: 12px 16px; color: var(--muted); cursor: pointer; font: inherit; border-bottom: 2px solid transparent; }
+    nav button.active { color: var(--fg); border-bottom-color: var(--accent); }
+    nav button:hover { color: var(--fg); }
+    main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .panel h2 { margin: 0 0 16px; font-size: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    tbody tr:last-child td { border-bottom: none; }
+    button.primary { background: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font: inherit; }
+    button.primary:hover { filter: brightness(1.1); }
+    button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px; }
+    button.secondary:hover { background: var(--border); }
+    button.danger { background: var(--err); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font: inherit; }
+    input, select { background: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 6px 10px; border-radius: 4px; font: inherit; width: 100%; }
+    input:focus, select:focus { border-color: var(--accent); outline: none; }
+    label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-row.full { grid-template-columns: 1fr; }
+    .printer-card { border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin-bottom: 12px; background: var(--bg); }
+    .printer-card .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: var(--border); color: var(--fg); }
+    .pill.ok { background: var(--ok); color: white; }
+    .pill.idle { background: var(--muted); color: white; }
+    .pill.err { background: var(--err); color: white; }
+    pre { background: #000; color: #ddd; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; max-height: 400px; overflow-y: auto; }
+    .hidden { display: none; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+    .stat .num { font-size: 24px; font-weight: 600; }
+    .stat .lbl { color: var(--muted); font-size: 12px; }
+    .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; }
+    .alert.warn { background: rgba(210, 153, 34, .15); border: 1px solid var(--warn); color: var(--warn); }
+    .alert.err { background: rgba(248, 81, 73, .15); border: 1px solid var(--err); color: var(--err); }
+    .alert.info { background: rgba(88, 166, 255, .15); border: 1px solid var(--accent); }
+    .scan-result { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .scan-result .ip { padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 12px; }
+    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📡 escpos-bridge</h1>
+    <span id="venue-pill" class="badge">venue: …</span>
+    <span id="device-pill" class="badge">device: …</span>
+    <span id="uptime-pill" class="badge">uptime: …</span>
+    <span id="mode-pill" class="badge">mode: …</span>
+    <span id="queue-pill" class="badge">queue: …</span>
+  </header>
+  <nav>
+    <button data-tab="status" class="active">Status</button>
+    <button data-tab="config">Config</button>
+    <button data-tab="discover">Discover</button>
+    <button data-tab="logs">Logs</button>
+  </nav>
+  <main>
+    <div id="setup-warn" class="alert warn hidden">
+      <strong>First-run setup required.</strong> Open the <a href="#" onclick="showTab('config')">Config tab</a> and set: web password, interceptor secret, and printer IPs.
+    </div>
+
+    <!-- STATUS TAB -->
+    <section id="tab-status" class="tab">
+      <div class="stats">
+        <div class="stat"><div id="s-uptime" class="num">—</div><div class="lbl">uptime</div></div>
+        <div class="stat"><div id="s-printers" class="num">—</div><div class="lbl">printers</div></div>
+        <div class="stat"><div id="s-queue" class="num">—</div><div class="lbl">forward queue</div></div>
+        <div class="stat"><div id="s-recent" class="num">—</div><div class="lbl">recent intercepts</div></div>
+      </div>
+      <div class="panel">
+        <h2>Printers</h2>
+        <div id="printer-list">loading…</div>
+      </div>
+      <div class="panel">
+        <h2>Recent intercepts</h2>
+        <table id="recent-table">
+          <thead><tr><th>Time</th><th>Printer</th><th>Kind</th><th>Summary</th></tr></thead>
+          <tbody><tr><td colspan="4" style="color:var(--muted)">no intercepts yet</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CONFIG TAB -->
+    <section id="tab-config" class="tab hidden">
+      <div class="panel">
+        <h2>Identity & secrets</h2>
+        <div class="form-row">
+          <div><label>Venue slug</label><input id="cfg-venue" placeholder="19th-hole"></div>
+          <div><label>Device ID</label><input id="cfg-device" placeholder="pi5-19th-1"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Web password (this UI)</label><input id="cfg-webpw" type="password" placeholder="leave blank to keep current"></div>
+          <div><label>Interceptor secret (must match Hetzner)</label><input id="cfg-secret" type="password" placeholder="leave blank to keep current"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Printers</h2>
+        <div id="printer-config">loading…</div>
+      </div>
+      <div class="panel">
+        <h2>Print mode</h2>
+        <div class="form-row">
+          <div>
+            <label>Mode</label>
+            <select id="cfg-mode">
+              <option value="transparent">Transparent — always print (default, safe)</option>
+              <option value="on-demand-2x">On-demand 2x — only print sales receipts if pressed twice within 20s</option>
+              <option value="digital-only">Digital only — never print (DANGEROUS, AEAT issue)</option>
+            </select>
+          </div>
+          <div><label>Always print sales over (€)</label><input id="cfg-always" type="number" step="0.01" value="50"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" onclick="saveConfig()">Save config</button>
+        <button class="secondary" onclick="restartService()">Restart service</button>
+        <span id="save-status" style="color:var(--muted)"></span>
+      </div>
+    </section>
+
+    <!-- DISCOVER TAB -->
+    <section id="tab-discover" class="tab hidden">
+      <div class="panel">
+        <h2>LAN scan — find printers on the network</h2>
+        <p style="color:var(--muted)">Scans your Pi's subnet for hosts with TCP port 9100 open (standard ESC/POS port). Takes ~5–10 seconds.</p>
+        <button class="primary" onclick="runScan()">Run LAN scan</button>
+        <div id="scan-result" style="margin-top:16px;"></div>
+      </div>
+      <div class="panel">
+        <h2>Test print</h2>
+        <p style="color:var(--muted)">Send a tiny "test from Pi" receipt to a printer to confirm it's reachable.</p>
+        <div class="form-row">
+          <div><label>Printer IP</label><input id="test-host" placeholder="192.168.18.50"></div>
+          <div><label>Port</label><input id="test-port" type="number" value="9100"></div>
+        </div>
+        <button class="primary" onclick="testPrint()">Send test print</button>
+        <span id="test-status" style="margin-left:12px;color:var(--muted)"></span>
+      </div>
+    </section>
+
+    <!-- LOGS TAB -->
+    <section id="tab-logs" class="tab hidden">
+      <div class="panel">
+        <h2>journalctl — escpos-bridge</h2>
+        <div class="actions" style="margin-bottom:12px;">
+          <button class="secondary" onclick="loadLogs()">Refresh</button>
+          <label style="display:inline-block;width:auto;margin:0;"><input type="checkbox" id="log-auto"> auto-refresh (5s)</label>
+        </div>
+        <pre id="logs">loading…</pre>
+      </div>
+    </section>
+  </main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let cfg = {}, currentStatus = {};
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+function showTab(name) {
+  for (const b of document.querySelectorAll('nav button')) b.classList.toggle('active', b.dataset.tab === name);
+  for (const s of document.querySelectorAll('.tab')) s.classList.toggle('hidden', s.id !== `tab-${name}`);
+  if (name === 'logs') loadLogs();
+}
+for (const b of document.querySelectorAll('nav button')) b.addEventListener('click', () => showTab(b.dataset.tab));
+
+function fmtAge(iso) {
+  if (!iso) return 'never';
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+function fmtUptime(s) {
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+  return `${Math.floor(s/86400)}d ${Math.floor((s%86400)/3600)}h`;
+}
+
+async function refreshStatus() {
+  try {
+    const s = await api('/api/status');
+    currentStatus = s;
+    $('s-uptime').textContent = fmtUptime(s.uptime);
+    $('s-printers').textContent = s.printers.length;
+    $('s-queue').textContent = s.queue;
+    $('s-recent').textContent = s.recentIntercepts.length;
+    $('uptime-pill').textContent = `uptime: ${fmtUptime(s.uptime)}`;
+    $('mode-pill').textContent = `mode: ${s.printMode}`;
+    $('queue-pill').textContent = `queue: ${s.queue}`;
+    $('queue-pill').className = 'badge' + (s.queue > 0 ? ' warn' : ' ok');
+
+    // Printer list
+    $('printer-list').innerHTML = s.printers.map(p => {
+      const stats = p.stats;
+      const recent = stats.lastByteAt && (Date.now() - new Date(stats.lastByteAt).getTime() < 5 * 60 * 1000);
+      const pillClass = !stats.lastByteAt ? 'idle' : recent ? 'ok' : 'idle';
+      const pillText = !stats.lastByteAt ? 'no traffic yet' : recent ? 'active' : 'idle';
+      return `
+        <div class="printer-card">
+          <div class="head">
+            <strong>${p.name}</strong> &nbsp;<span class="pill">${p.kind}</span>
+            <span class="pill ${pillClass}">${pillText}</span>
+          </div>
+          <div style="color:var(--muted); font-size:13px;">
+            Listens on <code>:${p.listenPort}</code> → forwards to <code>${p.upstreamHost}:${p.upstreamPort}</code><br>
+            Last byte: ${fmtAge(stats.lastByteAt)} · ${stats.totalConnections} connections · ${stats.totalBytes.toLocaleString()} bytes
+          </div>
+        </div>`;
+    }).join('') || '<p style="color:var(--muted)">No printers configured.</p>';
+
+    // Recent table
+    const tbody = $('recent-table').querySelector('tbody');
+    if (s.recentIntercepts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">no intercepts yet</td></tr>';
+    } else {
+      tbody.innerHTML = s.recentIntercepts.map(r => `
+        <tr><td>${fmtAge(r.at)}</td><td>${r.printer}</td><td><span class="pill">${r.kind}</span></td><td>${r.summary || ''}</td></tr>
+      `).join('');
+    }
+  } catch (err) {
+    console.error('refreshStatus failed:', err);
+  }
+}
+
+async function loadConfig() {
+  try {
+    cfg = await api('/api/config');
+    $('venue-pill').textContent = `venue: ${cfg.venue}`;
+    $('device-pill').textContent = `device: ${cfg.deviceId}`;
+    $('cfg-venue').value = cfg.venue;
+    $('cfg-device').value = cfg.deviceId;
+    $('cfg-mode').value = cfg.printMode;
+    $('cfg-always').value = cfg.alwaysPrintAboveEur;
+
+    // First-run banner
+    if (cfg.webPasswordIsDefault || cfg.interceptorSecretIsDefault) {
+      $('setup-warn').classList.remove('hidden');
+    }
+
+    // Render printer config blocks (8 slots)
+    const out = [];
+    for (let i = 1; i <= 8; i++) {
+      const p = cfg.printers.find(x => x.slot === i) || {};
+      const isEmpty = !p.upstreamHost;
+      out.push(`
+        <div class="printer-card">
+          <div class="head"><strong>Printer ${i}</strong> ${isEmpty ? '<span class="pill idle">empty slot</span>' : '<span class="pill ok">configured</span>'}</div>
+          <div class="form-row">
+            <div><label>Name</label><input id="p${i}-name" value="${p.name || ''}" placeholder="${i===1?'receipt':i===2?'kp':i===3?'bar':''}"></div>
+            <div><label>Kind</label>
+              <select id="p${i}-kind">
+                <option value="">(empty)</option>
+                <option value="receipt" ${p.kind==='receipt'?'selected':''}>receipt</option>
+                <option value="kp" ${p.kind==='kp'?'selected':''}>kp</option>
+                <option value="bar" ${p.kind==='bar'?'selected':''}>bar</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div><label>Listen port (Pi)</label><input id="p${i}-port" type="number" value="${p.listenPort || (9099 + i)}"></div>
+            <div><label>Real printer IP</label><input id="p${i}-host" value="${p.upstreamHost || ''}" placeholder="192.168.18.x"></div>
+          </div>
+        </div>`);
+    }
+    $('printer-config').innerHTML = out.join('');
+  } catch (err) {
+    console.error('loadConfig failed:', err);
+  }
+}
+
+async function saveConfig() {
+  $('save-status').textContent = 'saving…';
+  const updates = {
+    VENUE_SLUG: $('cfg-venue').value,
+    DEVICE_ID: $('cfg-device').value,
+    PRINT_MODE: $('cfg-mode').value,
+    ALWAYS_PRINT_ABOVE_EUR: $('cfg-always').value,
+  };
+  if ($('cfg-webpw').value) updates.WEB_PASSWORD = $('cfg-webpw').value;
+  if ($('cfg-secret').value) updates.INTERCEPTOR_SECRET = $('cfg-secret').value;
+  for (let i = 1; i <= 8; i++) {
+    const kind = $(`p${i}-kind`).value;
+    const host = $(`p${i}-host`).value;
+    const port = $(`p${i}-port`).value;
+    const name = $(`p${i}-name`).value;
+    if (kind && host) {
+      updates[`PRINTER_${i}_NAME`] = name || `printer${i}`;
+      updates[`PRINTER_${i}_KIND`] = kind;
+      updates[`PRINTER_${i}_HOST`] = host;
+      updates[`PRINTER_${i}_PORT`] = port;
+    }
+  }
+  try {
+    await api('/api/config', { method: 'POST', body: JSON.stringify(updates) });
+    $('save-status').innerHTML = '<span style="color:var(--ok)">✓ saved — restart service to apply</span>';
+    $('cfg-webpw').value = '';
+    $('cfg-secret').value = '';
+  } catch (err) {
+    $('save-status').innerHTML = `<span style="color:var(--err)">✗ ${err.message}</span>`;
+  }
+}
+
+async function restartService() {
+  if (!confirm('Restart the bridge service? Print intercepts will be briefly interrupted (~3s).')) return;
+  $('save-status').textContent = 'restarting…';
+  try {
+    await api('/api/restart', { method: 'POST' });
+    $('save-status').innerHTML = '<span style="color:var(--ok)">✓ restarted</span>';
+    setTimeout(() => location.reload(), 3000);
+  } catch (err) {
+    $('save-status').innerHTML = `<span style="color:var(--err)">✗ ${err.message} (check sudoers)</span>`;
+  }
+}
+
+async function runScan() {
+  $('scan-result').innerHTML = '<em>scanning… this takes ~10s</em>';
+  try {
+    const r = await api('/api/scan');
+    if (r.error) { $('scan-result').innerHTML = `<span style="color:var(--err)">${r.error}</span>`; return; }
+    if (!r.open9100.length) {
+      $('scan-result').innerHTML = `<p>Scanned ${r.subnet} (Pi is ${r.myIp}). <strong>No printers found on port 9100.</strong> Are they powered on and on the same LAN?</p>`;
+    } else {
+      $('scan-result').innerHTML = `
+        <p>Scanned ${r.subnet} (Pi is ${r.myIp}). Found ${r.open9100.length} host(s) responding on :9100:</p>
+        <div class="scan-result">${r.open9100.map(ip => `<span class="ip">${ip}</span>`).join('')}</div>
+        <p style="color:var(--muted); font-size:12px; margin-top:12px;">Click an IP, then go to <a href="#" onclick="showTab('discover');setTimeout(()=>{$('test-host').value='${r.open9100[0]}';},100)">Test print</a> to send a sample receipt and confirm which physical printer it is.</p>`;
+    }
+  } catch (err) {
+    $('scan-result').innerHTML = `<span style="color:var(--err)">${err.message}</span>`;
+  }
+}
+
+async function testPrint() {
+  $('test-status').textContent = 'sending…';
+  try {
+    const r = await api('/api/test-print', { method: 'POST', body: JSON.stringify({ host: $('test-host').value, port: Number($('test-port').value) }) });
+    $('test-status').innerHTML = '<span style="color:var(--ok)">✓ sent — check the printer</span>';
+  } catch (err) {
+    $('test-status').innerHTML = `<span style="color:var(--err)">✗ ${err.message}</span>`;
+  }
+}
+
+async function loadLogs() {
+  try {
+    const r = await api('/api/logs?n=300');
+    $('logs').textContent = r.lines.join('\n');
+    $('logs').scrollTop = $('logs').scrollHeight;
+  } catch (err) {
+    $('logs').textContent = `Error: ${err.message}`;
+  }
+}
+let logTimer = null;
+$('log-auto').addEventListener('change', (e) => {
+  if (logTimer) clearInterval(logTimer);
+  if (e.target.checked) logTimer = setInterval(loadLogs, 5000);
+});
+
+// Boot
+loadConfig();
+refreshStatus();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
