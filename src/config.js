@@ -1,62 +1,103 @@
 /**
- * Config — env-driven so the same binary runs across venues / network moves
- * (19th Hole LAN today, POS network later).
+ * Config — env-driven so the same binary runs across venues / network moves.
  *
- * Override via /etc/escpos-bridge/config.env (loaded by systemd as EnvironmentFile)
- * or inline: KP_UPSTREAM_HOST=192.168.18.100 node src/server.js
+ * Supports N printer proxies via numbered slots:
+ *
+ *   PRINTER_1_NAME=receipt
+ *   PRINTER_1_PORT=9100
+ *   PRINTER_1_HOST=192.168.18.50      (real receipt printer IP)
+ *   PRINTER_1_KIND=receipt             (or: kp | bar)
+ *
+ *   PRINTER_2_NAME=kp
+ *   PRINTER_2_PORT=9101
+ *   PRINTER_2_HOST=192.168.18.100     (kitchen printer)
+ *   PRINTER_2_KIND=kp
+ *
+ *   PRINTER_3_NAME=bar
+ *   PRINTER_3_PORT=9102
+ *   PRINTER_3_HOST=192.168.18.101     (bar printer)
+ *   PRINTER_3_KIND=bar
+ *
+ * Add up to 8 by setting PRINTER_4_*, etc. Empty slots are skipped.
+ *
+ * `KIND` controls which extractor runs:
+ *   receipt → sales receipts (auto-detects EOD/float/petty cash too)
+ *   kp      → kitchen order tickets
+ *   bar     → bar order tickets (same parser as KP)
  */
 const env = process.env;
 
 function num(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 
+function loadPrinters() {
+  const out = [];
+  for (let i = 1; i <= 8; i++) {
+    const host = env[`PRINTER_${i}_HOST`];
+    const port = env[`PRINTER_${i}_PORT`];
+    const name = env[`PRINTER_${i}_NAME`];
+    const kind = env[`PRINTER_${i}_KIND`];
+    if (!host || !port) continue;
+    out.push({
+      slot: i,
+      name: name || `printer${i}`,
+      kind: kind || 'receipt',
+      listenPort: num(port, 9100 + i - 1),
+      upstreamHost: host,
+      upstreamPort: num(env[`PRINTER_${i}_UPSTREAM_PORT`], 9100),
+      enabled: env[`PRINTER_${i}_ENABLED`] !== 'false',
+    });
+  }
+  return out;
+}
+
 export const config = {
-  // Where the till tells the printer to connect
-  receipt: {
-    listenPort:    num(env.RECEIPT_LISTEN_PORT, 9100),
-    upstreamHost:  env.RECEIPT_UPSTREAM_HOST || '',          // e.g. '192.168.18.x'
-    upstreamPort:  num(env.RECEIPT_UPSTREAM_PORT, 9100),
-    enabled:       env.RECEIPT_ENABLED !== 'false',
-  },
-  kp: {
-    listenPort:    num(env.KP_LISTEN_PORT, 9101),
-    upstreamHost:  env.KP_UPSTREAM_HOST || '192.168.18.100', // confirmed: 19th Hole kitchen
-    upstreamPort:  num(env.KP_UPSTREAM_PORT, 9100),
-    enabled:       env.KP_ENABLED !== 'false',
-  },
+  printers: loadPrinters(),
 
   // Where parsed events go
   hetzner: {
-    receiptUrl: env.HETZNER_RECEIPT_URL || 'https://webhooks.lsltapps.com/intercept/receipt',
-    kpUrl:      env.HETZNER_KP_URL      || 'https://webhooks.lsltapps.com/intercept/kp',
-    secret:     env.INTERCEPTOR_SECRET  || '',                // SET IN config.env — required
-    timeoutMs:  num(env.HETZNER_TIMEOUT_MS, 5000),
+    baseUrl: (env.HETZNER_BASE_URL || 'https://webhooks.lsltapps.com/intercept').replace(/\/$/, ''),
+    secret:  env.INTERCEPTOR_SECRET || '',
+    timeoutMs: num(env.HETZNER_TIMEOUT_MS, 5000),
   },
 
   // Local resilience
   retry: {
     dbPath:        env.RETRY_DB_PATH       || '/var/lib/escpos-bridge/retry.db',
     sweepEveryMs:  num(env.RETRY_SWEEP_MS, 30 * 1000),
-    maxAgeHours:   num(env.RETRY_MAX_AGE_HOURS, 72),          // discard older than 3 days
+    maxAgeHours:   num(env.RETRY_MAX_AGE_HOURS, 72),
   },
 
-  // Identity (shows up in Hetzner DB so we know which Pi sent the event)
+  // Identity
   device: {
     venue:      env.VENUE_SLUG || '19th-hole',
     deviceId:   env.DEVICE_ID  || 'pi5-19th-1',
   },
 
-  // Verbosity
-  logLevel: env.LOG_LEVEL || 'info',  // 'debug' | 'info' | 'warn' | 'error'
+  // Print mode — controls whether bytes physically print
+  // 'transparent'      — always forward to printer (default; safe; no UX change)
+  // 'on-demand-2x'     — only forward if same content arrives twice within 20s
+  //                      (sales receipts only; floats/EODs/etc always forward)
+  // 'digital-only'     — never forward to printer (capture only — DANGEROUS, AEAT issue)
+  printMode: env.PRINT_MODE || 'transparent',
+  duplicateWindowMs: num(env.DUPLICATE_WINDOW_MS, 20 * 1000),
+  alwaysPrintAboveEur: num(env.ALWAYS_PRINT_ABOVE_EUR, 50),  // override for big tx in 2x mode
+
+  logLevel: env.LOG_LEVEL || 'info',
 };
 
 export function validateConfig() {
   const errs = [];
   if (!config.hetzner.secret) errs.push('INTERCEPTOR_SECRET not set — required for auth');
-  if (config.receipt.enabled && !config.receipt.upstreamHost) {
-    errs.push('RECEIPT_UPSTREAM_HOST not set (set RECEIPT_ENABLED=false to skip receipt proxy)');
+  if (config.printers.length === 0) {
+    errs.push('No printers configured — set PRINTER_1_HOST / PRINTER_1_PORT / etc.');
   }
-  if (config.kp.enabled && !config.kp.upstreamHost) {
-    errs.push('KP_UPSTREAM_HOST not set (set KP_ENABLED=false to skip KP proxy)');
+  for (const p of config.printers) {
+    if (!['receipt', 'kp', 'bar'].includes(p.kind)) {
+      errs.push(`PRINTER_${p.slot}_KIND='${p.kind}' invalid — must be receipt|kp|bar`);
+    }
+  }
+  if (!['transparent', 'on-demand-2x', 'digital-only'].includes(config.printMode)) {
+    errs.push(`PRINT_MODE='${config.printMode}' invalid — must be transparent|on-demand-2x|digital-only`);
   }
   return errs;
 }

@@ -64,28 +64,50 @@ if [[ ! -f "$CONFIG_DIR/config.env" ]]; then
   cat > "$CONFIG_DIR/config.env" <<'EOF'
 # escpos-bridge config — edit then `systemctl restart escpos-bridge`
 
-# Required: shared secret for Hetzner auth (must match webhook server's INTERCEPTOR_SECRET)
+# ───── Required ─────
+# Shared secret for Hetzner auth (must match webhook server's INTERCEPTOR_SECRET)
 INTERCEPTOR_SECRET=changeme
 
-# Identity (shows up in Hetzner DB)
+# Identity (appears in interceptor_events.venue + .device_id)
 VENUE_SLUG=19th-hole
 DEVICE_ID=pi5-19th-1
 
-# Receipt printer proxy
-RECEIPT_ENABLED=true
-RECEIPT_LISTEN_PORT=9100
-RECEIPT_UPSTREAM_HOST=        # ← FILL IN with the real receipt printer IP
-RECEIPT_UPSTREAM_PORT=9100
+# ───── Printers (one per till output stream — add as many as you have) ─────
+# Each printer slot needs HOST + PORT + NAME + KIND (receipt | kp | bar)
+# Empty slots are skipped. Up to 8 printers.
 
-# Kitchen printer proxy
-KP_ENABLED=true
-KP_LISTEN_PORT=9101
-KP_UPSTREAM_HOST=192.168.18.100   # confirmed for 19th Hole
-KP_UPSTREAM_PORT=9100
+# Slot 1 — Receipt printer (customer receipts, EOD reports, floats, petty cash)
+PRINTER_1_NAME=receipt
+PRINTER_1_KIND=receipt
+PRINTER_1_PORT=9100
+PRINTER_1_HOST=                       # ← FILL IN: receipt printer IP
+PRINTER_1_UPSTREAM_PORT=9100
 
-# Hetzner endpoints (override only if you change webhook server URL)
-# HETZNER_RECEIPT_URL=https://webhooks.lsltapps.com/intercept/receipt
-# HETZNER_KP_URL=https://webhooks.lsltapps.com/intercept/kp
+# Slot 2 — Kitchen printer (food orders)
+PRINTER_2_NAME=kp
+PRINTER_2_KIND=kp
+PRINTER_2_PORT=9101
+PRINTER_2_HOST=192.168.18.100         # confirmed for 19th Hole kitchen
+PRINTER_2_UPSTREAM_PORT=9100
+
+# Slot 3 — Bar printer (drink orders)
+PRINTER_3_NAME=bar
+PRINTER_3_KIND=bar
+PRINTER_3_PORT=9102
+PRINTER_3_HOST=                       # ← FILL IN: bar printer IP
+PRINTER_3_UPSTREAM_PORT=9100
+
+# ───── Print mode ─────
+# transparent     — always forward to printer (DEFAULT, safe, no UX change)
+# on-demand-2x    — sales receipts only print if same content sent twice within 20s
+#                   (saves paper; non-sales docs always print; >€50 always prints)
+# digital-only    — never forward to printer (DANGEROUS — AEAT compliance issue)
+PRINT_MODE=transparent
+DUPLICATE_WINDOW_MS=20000
+ALWAYS_PRINT_ABOVE_EUR=50
+
+# ───── Hetzner (override only if URL changes) ─────
+# HETZNER_BASE_URL=https://webhooks.lsltapps.com/intercept
 
 # Verbosity: debug | info | warn | error
 LOG_LEVEL=info

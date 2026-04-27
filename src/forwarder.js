@@ -57,7 +57,7 @@ async function postOnce(url, payload) {
 
 /** Best-effort: try immediately; on failure enqueue for later. */
 export async function send(kind, payload) {
-  const url = kind === 'receipt' ? config.hetzner.receiptUrl : config.hetzner.kpUrl;
+  const url = `${config.hetzner.baseUrl}/${kind === 'receipt' ? 'receipt' : 'kp'}`;
   try {
     await postOnce(url, payload);
     if (config.logLevel !== 'error') console.log(`[forward] ${kind} sent OK`);
