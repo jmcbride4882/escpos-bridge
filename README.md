@@ -30,11 +30,11 @@ If the Pi crashes, systemd restarts it within 5s. If Hetzner is unreachable, int
 
 ## Hardware
 
-- Raspberry Pi 5, 8GB
-- Active cooler (Pi 5 throttles without one)
-- 27W USB-C PSU (Pi 5 official)
-- Wired ethernet (do NOT use WiFi — too brittle for printer-path)
-- microSD ≥ 16GB (or NVMe via the Pi 5 hat)
+- Raspberry Pi 4, 8GB (Pi 5 also fine — software is identical)
+- Passive heatsink case is sufficient for this workload (no active cooler needed)
+- 5V 3A USB-C PSU (official Pi 4 PSU)
+- Wired ethernet (do NOT use WiFi — too brittle for the printer-path)
+- microSD ≥ 16GB (Class 10 / A1 or better)
 
 ## First-time setup (~30 minutes)
 

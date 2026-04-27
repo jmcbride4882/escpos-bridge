@@ -2,7 +2,7 @@
 # escpos-bridge installer for Raspberry Pi OS Lite (Debian bookworm, 64-bit).
 # One-shot — clones repo, installs Node 20, builds, sets up systemd, starts.
 #
-# Usage on a fresh Pi 5:
+# Usage on a fresh Pi 4 (8GB) or Pi 5:
 #   curl -fsSL https://raw.githubusercontent.com/jmcbride4882/escpos-bridge/main/install.sh | sudo bash
 #   # OR (if cloning manually first):
 #   git clone https://github.com/jmcbride4882/escpos-bridge.git /opt/escpos-bridge
