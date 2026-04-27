@@ -155,6 +155,21 @@ EOF
   echo
 fi
 
+# Step 5d — Raspberry Pi Connect (free remote shell + screen share via
+# https://connect.raspberrypi.com). Lets us SSH into every venue's Pi
+# from anywhere without VPN or port forwarding. Skipped on non-Pi hosts.
+if grep -q 'Raspberry Pi' /proc/cpuinfo 2>/dev/null; then
+  if ! command -v rpi-connect >/dev/null 2>&1; then
+    echo "==> installing rpi-connect-lite (headless: shell access only)"
+    apt-get install -y -qq rpi-connect-lite || echo "  ⚠ rpi-connect-lite not available — skipping"
+  fi
+  echo "    Pi Connect requires a one-time signin under the 'pi' user (NOT root):"
+  echo "      sudo loginctl enable-linger pi"
+  echo "      sudo -u pi rpi-connect signin   # opens a code at https://connect.raspberrypi.com/sign-in"
+  echo "      sudo -u pi rpi-connect on       # enable shell sharing"
+  echo "    Then the Pi appears at https://connect.raspberrypi.com — SSH from any browser."
+fi
+
 # Step 6 — systemd
 echo "==> installing systemd unit"
 cp "$INSTALL_DIR/systemd/escpos-bridge.service" /etc/systemd/system/

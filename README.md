@@ -133,6 +133,23 @@ You should see lines like:
 [kp]      listening on :9101 → forwarding to 192.168.18.100:9100
 ```
 
+### 6b. Enable Raspberry Pi Connect (recommended)
+
+Free, official Raspberry Pi remote-access service. Lets you SSH/console into the Pi from anywhere via https://connect.raspberrypi.com — no VPN, no port-forwarding.
+
+The installer pre-installs `rpi-connect-lite` but signin is interactive (one-time):
+
+```bash
+sudo loginctl enable-linger pi              # so the daemon survives logout
+sudo -u pi rpi-connect signin               # opens a sign-in code
+sudo -u pi rpi-connect on                   # enable shell sharing
+sudo -u pi rpi-connect status
+```
+
+Sign in with your Raspberry Pi ID (free — create one at https://id.raspberrypi.com if you don't have one). The Pi then shows up in your dashboard at https://connect.raspberrypi.com. Click "Shell" to SSH from any browser.
+
+Useful when the venue's Pi misbehaves and you're not on-site. Each venue's Pi gets a friendly name (e.g. `pi-19th-1`, `pi-lakeside-1`) which appears in the Pi Connect dashboard — fast triage when something breaks.
+
 ### 7. Test
 
 Make any transaction at the till. Within ~2 seconds:
