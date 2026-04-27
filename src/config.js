@@ -32,11 +32,15 @@ function num(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def;
 function loadPrinters() {
   const out = [];
   for (let i = 1; i <= 8; i++) {
-    const host = env[`PRINTER_${i}_HOST`];
+    let host = (env[`PRINTER_${i}_HOST`] || '').trim();
     const port = env[`PRINTER_${i}_PORT`];
     const name = env[`PRINTER_${i}_NAME`];
     const kind = env[`PRINTER_${i}_KIND`];
+    // Strip inline `# comment` (env files don't do that natively)
+    if (host.includes('#')) host = host.split('#')[0].trim();
+    // Skip if host is empty, looks like a placeholder, or doesn't look like an IP/hostname
     if (!host || !port) continue;
+    if (!/^[a-zA-Z0-9.\-_]+$/.test(host)) continue;
     out.push({
       slot: i,
       name: name || `printer${i}`,
@@ -90,9 +94,13 @@ export const config = {
 
 export function validateConfig() {
   const errs = [];
-  if (!config.hetzner.secret) errs.push('INTERCEPTOR_SECRET not set — required for auth');
+  // Soft warnings — log but don't refuse to start, so the web GUI can boot
+  // for first-run setup even when the secret + printers aren't configured yet.
+  if (!config.hetzner.secret) {
+    console.warn('[config] INTERCEPTOR_SECRET not set — Hetzner forwarding disabled until set');
+  }
   if (config.printers.length === 0) {
-    errs.push('No printers configured — set PRINTER_1_HOST / PRINTER_1_PORT / etc.');
+    console.warn('[config] No printers configured — web GUI will start but no proxies will run');
   }
   for (const p of config.printers) {
     if (!['receipt', 'kp', 'bar'].includes(p.kind)) {

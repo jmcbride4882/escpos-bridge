@@ -101,34 +101,37 @@ DEVICE_ID=pi4-lakeside-1
 # Adjust per venue. Add PRINTER_N_VENUE to override the global VENUE_SLUG
 # when a printer belongs to a different physical venue than the Pi's default.
 
+# Slots are auto-skipped if HOST is empty — this is the safe initial state.
+# Use the web GUI's LAN scan + Config tab to fill in HOSTs, or edit here.
+#
 # Slot 1 — Lakeside customer receipts (LAN printer at the bar)
 PRINTER_1_NAME=lakeside-receipt
 PRINTER_1_KIND=receipt
 PRINTER_1_PORT=9100
-PRINTER_1_HOST=                       # ← FILL IN via web GUI LAN scan
+PRINTER_1_HOST=
 PRINTER_1_VENUE=lakeside
-
+#
 # Slot 2 — Lakeside kitchen
 PRINTER_2_NAME=lakeside-kitchen
 PRINTER_2_KIND=kp
 PRINTER_2_PORT=9101
-PRINTER_2_HOST=                       # ← FILL IN
+PRINTER_2_HOST=
 PRINTER_2_VENUE=lakeside
-
-# Slot 3 — Snack Shack customer receipts (different venue, same Pi)
+#
+# Slot 3 — Snack Shack customer receipts
 PRINTER_3_NAME=snack-receipt
 PRINTER_3_KIND=receipt
 PRINTER_3_PORT=9102
-PRINTER_3_HOST=                       # ← FILL IN
+PRINTER_3_HOST=
 PRINTER_3_VENUE=snack-shack
-
+#
 # Slot 4 — Snack Shack kitchen
 PRINTER_4_NAME=snack-kitchen
 PRINTER_4_KIND=kp
 PRINTER_4_PORT=9103
-PRINTER_4_HOST=                       # ← FILL IN
+PRINTER_4_HOST=
 PRINTER_4_VENUE=snack-shack
-
+#
 # Slots 5-8 available for more printers (bar/order-A/order-B/front/back/etc).
 
 # ───── Print mode ─────
