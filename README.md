@@ -18,6 +18,23 @@ The new EposNow tills have a built-in receipt printer for till-side prints. We c
 
 For a typical venue: **2 printer slots** — the bar's LAN receipt printer (kind=`receipt`) and the kitchen printer (kind=`kp`). Bar tickets aren't printed in PAYG operation, so no `bar` slot needed.
 
+### Supports any number of EposNow printer locations
+
+EposNow lets you configure many printers per venue (Kitchen, Bar, Order A/B/C, Front, Back, etc.). Each becomes one slot:
+
+```
+PRINTER_1_NAME=receipt   KIND=receipt   HOST=192.168.18.50    # the bar's LAN receipt printer
+PRINTER_2_NAME=kitchen   KIND=kp        HOST=192.168.18.100   # food
+PRINTER_3_NAME=bar       KIND=kp        HOST=192.168.18.101   # drinks (when not PAYG)
+PRINTER_4_NAME=order-a   KIND=kp        HOST=192.168.18.102   # starters station
+PRINTER_5_NAME=front     KIND=kp        HOST=192.168.18.104   # front-of-house printer
+```
+
+- **`KIND`** = which parser to run (`receipt` for sales/EOD/floats, `kp` for any order ticket — same format regardless of station)
+- **`NAME`** = free-form label (matches whatever EposNow calls the station)
+
+Each intercept tags itself with `printerName` + `printerKind` in the payload, so you can filter "everything from `bar`" or "all `order-a` tickets" on the Hetzner side. Up to 8 slots supported by the env-driven config; extend the loop in `src/config.js` if you need more.
+
 ## Architecture
 
 ```
