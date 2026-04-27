@@ -255,9 +255,15 @@ export function startWebGui() {
         return send(res, 200, { ok: true, restartNeeded: true });
       }
       if (req.url === '/api/restart' && req.method === 'POST') {
-        // Use sudoers entry: nobody/escpos can run this without password
-        const r = spawnSync('sudo', ['-n', '/bin/systemctl', 'restart', 'escpos-bridge']);
-        return send(res, r.status === 0 ? 200 : 500, { ok: r.status === 0, stderr: r.stderr.toString() });
+        // Self-exit + let systemd's Restart=always bring us back within ~5s.
+        // Cleaner than sudo (no privilege escalation needed) and works in any
+        // sandboxed config. The HTTP response goes out before the exit.
+        send(res, 200, { ok: true, message: 'restarting in 1s' });
+        setTimeout(() => {
+          console.log('[web] restart requested via GUI — exiting (systemd will respawn)');
+          process.exit(0);
+        }, 1000);
+        return;
       }
       if (req.url?.startsWith('/api/logs') && req.method === 'GET') {
         const url = new URL(req.url, 'http://x');
