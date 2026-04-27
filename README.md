@@ -7,9 +7,16 @@ Transparent TCP proxy that intercepts EposNow ESC/POS print streams (receipt + k
 EposNow's webhook payload omits `Customer Credit` and `Customer Points` from the `Tenders` array (only `Cash` and `Card` are exposed at the device-token scope). The receipt printer always shows the real tenders. Capturing them gives us:
 
 - **Definitive ground truth** on wallet vs points payments (closes the verification loop our `eposnow_pending_verifications` system started)
-- **Real KP feed** for KDS / kitchen analytics
+- **AEAT compliance archive** — every receipt stored long-term in S3 (raw bytes + parsed JSON), satisfies the 4-year retention requirement
 - **Discovery of new till devices** as they appear (Till7 = device 8712 just showed up)
-- **Cross-check of staff names + invoice numbers** for AEAT compliance
+- **Cross-check of staff names + invoice numbers**
+- **Captures all till output** — not just sales receipts, also EOD reports, floats, petty cash, no-sale events, refunds (anything the till sends to the LAN printer)
+
+## Typical setup (PAYG venue)
+
+The new EposNow tills have a built-in receipt printer for till-side prints. We configure the till to **also** route customer receipts to a LAN printer (one located at the bar). The Pi sits in front of that LAN printer, intercepts the byte stream, parses, and forwards to Hetzner. The Pi forwards every byte to the actual printer in real time, so customers still get their paper receipts.
+
+For a typical venue: **2 printer slots** — the bar's LAN receipt printer (kind=`receipt`) and the kitchen printer (kind=`kp`). Bar tickets aren't printed in PAYG operation, so no `bar` slot needed.
 
 ## Architecture
 

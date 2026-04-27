@@ -94,26 +94,25 @@ DEVICE_ID=pi5-19th-1
 # Each printer slot needs HOST + PORT + NAME + KIND (receipt | kp | bar)
 # Empty slots are skipped. Up to 8 printers.
 
-# Slot 1 — Receipt printer (customer receipts, EOD reports, floats, petty cash)
+# Slot 1 — LAN receipt printer at the bar (customer receipts, EOD reports,
+# floats, petty cash, no-sale, refunds — anything the till sends to it).
+# The new EposNow till has a built-in receipt printer; we configure it to
+# ALSO route customer receipts to this LAN printer so we can capture them.
 PRINTER_1_NAME=receipt
 PRINTER_1_KIND=receipt
 PRINTER_1_PORT=9100
-PRINTER_1_HOST=                       # ← FILL IN: receipt printer IP
+PRINTER_1_HOST=                       # ← FILL IN via the web GUI's LAN scan
 PRINTER_1_UPSTREAM_PORT=9100
 
-# Slot 2 — Kitchen printer (food orders)
+# Slot 2 — Kitchen printer (food orders only — PAYG so no bar tickets)
 PRINTER_2_NAME=kp
 PRINTER_2_KIND=kp
 PRINTER_2_PORT=9101
 PRINTER_2_HOST=192.168.18.100         # confirmed for 19th Hole kitchen
 PRINTER_2_UPSTREAM_PORT=9100
 
-# Slot 3 — Bar printer (drink orders)
-PRINTER_3_NAME=bar
-PRINTER_3_KIND=bar
-PRINTER_3_PORT=9102
-PRINTER_3_HOST=                       # ← FILL IN: bar printer IP
-PRINTER_3_UPSTREAM_PORT=9100
+# Slots 3-8 available if you ever need separate bar tickets or per-station
+# printers. Each adds one TCP listener on the Pi.
 
 # ───── Print mode ─────
 # transparent     — always forward to printer (DEFAULT, safe, no UX change)
