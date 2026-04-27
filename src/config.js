@@ -41,14 +41,25 @@ function loadPrinters() {
     // Skip if host is empty, looks like a placeholder, or doesn't look like an IP/hostname
     if (!host || !port) continue;
     if (!/^[a-zA-Z0-9.\-_]+$/.test(host)) continue;
+    const k = kind || 'receipt';
+    // Per-printer default mode:
+    //   kp/bar    = transparent (kitchen + bar ops always need paper)
+    //   receipt   = on-demand-2x (capture only on auto-print; print only on
+    //               staff re-press — saves paper, customer-friendly)
+    // Override per-printer with PRINTER_N_MODE, or globally with PRINT_MODE.
+    const defaultModeForKind = (k === 'kp' || k === 'bar') ? 'transparent' : 'on-demand-2x';
+    // Default copies: receipt prints 2 (customer + till copy), KP/bar prints 1.
+    const defaultCopies = (k === 'receipt') ? 2 : 1;
     out.push({
       slot: i,
       name: name || `printer${i}`,
-      kind: kind || 'receipt',
+      kind: k,
       listenPort: num(port, 9100 + i - 1),
       upstreamHost: host,
       upstreamPort: num(env[`PRINTER_${i}_UPSTREAM_PORT`], 9100),
       enabled: env[`PRINTER_${i}_ENABLED`] !== 'false',
+      printMode: env[`PRINTER_${i}_MODE`] || defaultModeForKind,
+      copies: num(env[`PRINTER_${i}_COPIES`], defaultCopies),
       // Per-printer venue override — for one Pi covering multiple physical venues
       // (e.g. Lakeside + Snack Shack on the same LAN). Falls back to global VENUE_SLUG.
       venue: env[`PRINTER_${i}_VENUE`] || env.VENUE_SLUG || '19th-hole',
@@ -107,8 +118,8 @@ export function validateConfig() {
       errs.push(`PRINTER_${p.slot}_KIND='${p.kind}' invalid — must be receipt|kp|bar`);
     }
   }
-  if (!['transparent', 'on-demand-2x', 'digital-only'].includes(config.printMode)) {
-    errs.push(`PRINT_MODE='${config.printMode}' invalid — must be transparent|on-demand-2x|digital-only`);
+  if (!['transparent', 'dedup', 'on-demand-2x', 'digital-only'].includes(config.printMode)) {
+    errs.push(`PRINT_MODE='${config.printMode}' invalid — must be transparent|dedup|on-demand-2x|digital-only`);
   }
   return errs;
 }

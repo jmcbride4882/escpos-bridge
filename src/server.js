@@ -40,25 +40,34 @@ function contentHash(buf) {
  * Returns true to print, false to silently capture only.
  */
 function shouldPrint(printer, parsed, kind, totalEur, buf) {
-  if (config.printMode === 'transparent') return true;
-  if (config.printMode === 'digital-only') return false;
+  // Per-printer mode (set in config.js, falls back to global PRINT_MODE)
+  const mode = printer.printMode ?? config.printMode;
+  if (mode === 'transparent') return true;
+  if (mode === 'digital-only') return false;
 
-  // 'on-demand-2x' mode
-  // Always print non-sales documents (floats/EODs/refunds/etc — usually staff need paper)
-  if (kind !== 'sales') return true;
-  // Always print large transactions
-  if (totalEur != null && totalEur >= config.alwaysPrintAboveEur) return true;
-
-  // Check if we've seen this content recently (within window)
   const hash = contentHash(buf);
   const prior = recentPrints.get(hash);
   const now = Date.now();
-  if (prior && (now - prior.firstSeenAt) < config.duplicateWindowMs) {
-    // Second press — print AND clear so the next first-press starts fresh
+  const withinWindow = prior && (now - prior.firstSeenAt) < config.duplicateWindowMs;
+
+  // 'dedup' mode — print first copy, suppress identical re-prints within window.
+  if (mode === 'dedup') {
+    if (withinWindow) {
+      if (config.logLevel === 'debug') console.log(`[${printer.name}] dedup: suppressed duplicate (hash=${hash})`);
+      return false;
+    }
+    recentPrints.set(hash, { firstSeenAt: now, printer: printer.name });
+    return true;
+  }
+
+  // 'on-demand-2x' mode — 1st press = capture only, 2nd press within window = print
+  if (kind !== 'sales') return true;
+  if (totalEur != null && totalEur >= config.alwaysPrintAboveEur) return true;
+
+  if (withinWindow) {
     recentPrints.delete(hash);
     return true;
   }
-  // First press — capture only, remember so the next one within window prints
   recentPrints.set(hash, { firstSeenAt: now, printer: printer.name });
   return false;
 }
@@ -106,8 +115,11 @@ function startProxy(printer) {
     });
 
     // We'll open upstream lazily on `close` once we've decided to forward.
-    // For 'transparent' mode (the default), open it immediately so latency is zero.
-    if (config.printMode === 'transparent') openUpstream();
+    // For 'transparent' mode (default for the printer), open it immediately so latency is zero.
+    // For multi-copy printers, defer to 'close' so we can send N copies in one upstream session.
+    const printerMode = printer.printMode ?? config.printMode;
+    const printerCopies = printer.copies ?? 1;
+    if (printerMode === 'transparent' && printerCopies <= 1) openUpstream();
 
     client.on('close', async () => {
       const total = Buffer.concat(chunks);
@@ -135,18 +147,26 @@ function startProxy(printer) {
 
       // Forwarding decision
       const willPrint = shouldPrint(printer, parsed, kind, totalEur, total);
-      if (willPrint && !upstreamReady && config.printMode !== 'transparent') {
-        // Open and write the buffered bytes now
-        openUpstream();
-        // Wait briefly for upstream to be ready
-        await new Promise(r => setTimeout(r, 50));
-        if (upstreamReady) {
-          for (const b of chunks) upstream.write(b);
-          upstream.end();
+      if (willPrint) {
+        // Determine how many physical copies to print. For receipt printers with
+        // copies > 1: send the bytes N times so we get customer + till copy.
+        // For copies = 1 in transparent mode, the bytes already streamed via
+        // openUpstream() at connect time, so don't re-send.
+        const alreadyForwardedOnce = (printerMode === 'transparent' && printerCopies <= 1);
+        const remainingCopies = printerCopies - (alreadyForwardedOnce ? 1 : 0);
+
+        if (remainingCopies > 0) {
+          if (!upstreamReady) {
+            openUpstream();
+            await new Promise(r => setTimeout(r, 50));
+          }
+          if (upstreamReady) {
+            for (let copy = 0; copy < remainingCopies; copy++) {
+              upstream.write(total);
+            }
+            upstream.end();
+          }
         }
-      } else if (!willPrint && upstreamReady) {
-        // shouldn't happen in non-transparent mode (we don't open upstream until decision)
-        // but if it did, we already forwarded — no rollback possible
       }
 
       const payload = {
