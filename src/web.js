@@ -243,7 +243,7 @@ export function startWebGui() {
           'HETZNER_BASE_URL', 'LOG_LEVEL', 'WEB_PORT',
         ]);
         for (let i = 1; i <= 8; i++) {
-          for (const suf of ['NAME', 'KIND', 'PORT', 'HOST', 'UPSTREAM_PORT', 'ENABLED']) {
+          for (const suf of ['NAME', 'KIND', 'PORT', 'HOST', 'UPSTREAM_PORT', 'ENABLED', 'VENUE']) {
             allowed.add(`PRINTER_${i}_${suf}`);
           }
         }

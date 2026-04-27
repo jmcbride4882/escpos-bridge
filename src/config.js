@@ -45,6 +45,9 @@ function loadPrinters() {
       upstreamHost: host,
       upstreamPort: num(env[`PRINTER_${i}_UPSTREAM_PORT`], 9100),
       enabled: env[`PRINTER_${i}_ENABLED`] !== 'false',
+      // Per-printer venue override — for one Pi covering multiple physical venues
+      // (e.g. Lakeside + Snack Shack on the same LAN). Falls back to global VENUE_SLUG.
+      venue: env[`PRINTER_${i}_VENUE`] || env.VENUE_SLUG || '19th-hole',
     });
   }
   return out;

@@ -86,33 +86,50 @@ WEB_PASSWORD=changeme
 # Shared secret for Hetzner auth (must match webhook server's INTERCEPTOR_SECRET)
 INTERCEPTOR_SECRET=changeme
 
-# Identity (appears in interceptor_events.venue + .device_id)
-VENUE_SLUG=19th-hole
-DEVICE_ID=pi5-19th-1
+# Identity — VENUE_SLUG is the DEFAULT venue for this Pi.
+# A Pi can serve multiple venues (e.g. Lakeside + Snack Shack on one shared LAN).
+# In that case, set VENUE_SLUG to the primary venue and override per-printer
+# with PRINTER_N_VENUE for printers that belong to a different physical venue.
+VENUE_SLUG=lakeside
+DEVICE_ID=pi4-lakeside-1
 
 # ───── Printers (one per till output stream — add as many as you have) ─────
 # Each printer slot needs HOST + PORT + NAME + KIND (receipt | kp | bar)
 # Empty slots are skipped. Up to 8 printers.
 
-# Slot 1 — LAN receipt printer at the bar (customer receipts, EOD reports,
-# floats, petty cash, no-sale, refunds — anything the till sends to it).
-# The new EposNow till has a built-in receipt printer; we configure it to
-# ALSO route customer receipts to this LAN printer so we can capture them.
-PRINTER_1_NAME=receipt
+# Sample layout for ONE Pi covering Lakeside + Snack Shack (shared LAN).
+# Adjust per venue. Add PRINTER_N_VENUE to override the global VENUE_SLUG
+# when a printer belongs to a different physical venue than the Pi's default.
+
+# Slot 1 — Lakeside customer receipts (LAN printer at the bar)
+PRINTER_1_NAME=lakeside-receipt
 PRINTER_1_KIND=receipt
 PRINTER_1_PORT=9100
-PRINTER_1_HOST=                       # ← FILL IN via the web GUI's LAN scan
-PRINTER_1_UPSTREAM_PORT=9100
+PRINTER_1_HOST=                       # ← FILL IN via web GUI LAN scan
+PRINTER_1_VENUE=lakeside
 
-# Slot 2 — Kitchen printer (food orders only — PAYG so no bar tickets)
-PRINTER_2_NAME=kp
+# Slot 2 — Lakeside kitchen
+PRINTER_2_NAME=lakeside-kitchen
 PRINTER_2_KIND=kp
 PRINTER_2_PORT=9101
-PRINTER_2_HOST=192.168.18.100         # confirmed for 19th Hole kitchen
-PRINTER_2_UPSTREAM_PORT=9100
+PRINTER_2_HOST=                       # ← FILL IN
+PRINTER_2_VENUE=lakeside
 
-# Slots 3-8 available if you ever need separate bar tickets or per-station
-# printers. Each adds one TCP listener on the Pi.
+# Slot 3 — Snack Shack customer receipts (different venue, same Pi)
+PRINTER_3_NAME=snack-receipt
+PRINTER_3_KIND=receipt
+PRINTER_3_PORT=9102
+PRINTER_3_HOST=                       # ← FILL IN
+PRINTER_3_VENUE=snack-shack
+
+# Slot 4 — Snack Shack kitchen
+PRINTER_4_NAME=snack-kitchen
+PRINTER_4_KIND=kp
+PRINTER_4_PORT=9103
+PRINTER_4_HOST=                       # ← FILL IN
+PRINTER_4_VENUE=snack-shack
+
+# Slots 5-8 available for more printers (bar/order-A/order-B/front/back/etc).
 
 # ───── Print mode ─────
 # transparent     — always forward to printer (DEFAULT, safe, no UX change)

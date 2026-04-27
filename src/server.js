@@ -154,7 +154,8 @@ function startProxy(printer) {
         kind,
         printerName: printer.name,
         printerKind: printer.kind,
-        venue: config.device.venue,
+        // Use per-printer venue override (falls back to global default in config.js)
+        venue: printer.venue,
         deviceId: config.device.deviceId,
         capturedAt: new Date().toISOString(),
         rawSize: total.length,

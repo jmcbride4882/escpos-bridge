@@ -286,6 +286,10 @@ async function loadConfig() {
             <div><label>Listen port (Pi)</label><input id="p${i}-port" type="number" value="${p.listenPort || (9099 + i)}"></div>
             <div><label>Real printer IP</label><input id="p${i}-host" value="${p.upstreamHost || ''}" placeholder="192.168.18.x"></div>
           </div>
+          <div class="form-row full">
+            <div><label>Venue (override — only set if this printer belongs to a different venue than the Pi's default)</label>
+              <input id="p${i}-venue" value="${p.venue && p.venue !== cfg.venue ? p.venue : ''}" placeholder="e.g. snack-shack (leave blank = default ${cfg.venue})"></div>
+          </div>
         </div>`);
     }
     $('printer-config').innerHTML = out.join('');
@@ -314,6 +318,8 @@ async function saveConfig() {
       updates[`PRINTER_${i}_KIND`] = kind;
       updates[`PRINTER_${i}_HOST`] = host;
       updates[`PRINTER_${i}_PORT`] = port;
+      const venue = $(`p${i}-venue`).value.trim();
+      if (venue) updates[`PRINTER_${i}_VENUE`] = venue;
     }
   }
   try {
