@@ -1,0 +1,18 @@
+{
+  "name": "escpos-bridge",
+  "version": "1.0.0",
+  "description": "Transparent TCP proxy that intercepts ESC/POS print streams (receipt + kitchen) and forwards parsed transactions to Hetzner",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test:replay": "node test/replay.js",
+    "test:parse": "node test/parse-sample.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0"
+  }
+}
