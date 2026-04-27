@@ -1,0 +1,14 @@
+[Unit]
+Description=Pull escpos-bridge updates from GitHub and restart if changed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/escpos-bridge/scripts/auto-update.sh
+StandardOutput=journal
+StandardError=journal
+
+# Don't blow up the timer if the update fails (e.g. transient network).
+# A failing run still gets logged; next tick will retry.
+SuccessExitStatus=0

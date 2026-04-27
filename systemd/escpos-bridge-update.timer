@@ -1,0 +1,13 @@
+[Unit]
+Description=Run escpos-bridge auto-update every 5 minutes
+
+[Timer]
+# 2 min after boot for the first check, then every 5 min
+OnBootSec=2min
+OnUnitActiveSec=5min
+# If the Pi was offline at the scheduled time, run on next boot
+Persistent=true
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target
