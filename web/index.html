@@ -117,13 +117,14 @@
         <div id="printer-config">loading…</div>
       </div>
       <div class="panel">
-        <h2>Print mode</h2>
+        <h2>Print mode <span style="color:var(--muted);font-size:13px;font-weight:400">(global fallback — overridden by per-printer mode below)</span></h2>
         <div class="form-row">
           <div>
             <label>Mode</label>
             <select id="cfg-mode">
               <option value="transparent">Transparent — always print (default, safe)</option>
-              <option value="on-demand-2x">On-demand 2x — only print sales receipts if pressed twice within 20s</option>
+              <option value="dedup">Dedup — print first copy, suppress identical reprints within window</option>
+              <option value="on-demand-2x">On-demand 2x — capture only on auto-print; print on staff re-press</option>
               <option value="digital-only">Digital only — never print (DANGEROUS, AEAT issue)</option>
             </select>
           </div>
@@ -286,6 +287,19 @@ async function loadConfig() {
             <div><label>Listen port (Pi)</label><input id="p${i}-port" type="number" value="${p.listenPort || (9099 + i)}"></div>
             <div><label>Real printer IP</label><input id="p${i}-host" value="${p.upstreamHost || ''}" placeholder="192.168.18.x"></div>
           </div>
+          <div class="form-row">
+            <div><label>Print mode <span style="color:var(--muted);font-weight:400">(per-printer)</span></label>
+              <select id="p${i}-mode">
+                <option value="" ${!p.printMode||p.printMode==='auto'?'selected':''}>(auto: kp/bar=transparent, receipt=on-demand-2x)</option>
+                <option value="transparent"   ${p.printMode==='transparent'?'selected':''}>transparent — always print</option>
+                <option value="dedup"          ${p.printMode==='dedup'?'selected':''}>dedup — print first, suppress duplicate reprints</option>
+                <option value="on-demand-2x"   ${p.printMode==='on-demand-2x'?'selected':''}>on-demand-2x — capture only; print on staff re-press</option>
+                <option value="digital-only"   ${p.printMode==='digital-only'?'selected':''}>digital-only — never print</option>
+              </select>
+            </div>
+            <div><label>Copies <span style="color:var(--muted);font-weight:400">(when triggered)</span></label>
+              <input id="p${i}-copies" type="number" min="1" max="5" value="${p.copies ?? (p.kind==='receipt'?2:1)}"></div>
+          </div>
           <div class="form-row full">
             <div><label>Venue (override — only set if this printer belongs to a different venue than the Pi's default)</label>
               <input id="p${i}-venue" value="${p.venue && p.venue !== cfg.venue ? p.venue : ''}" placeholder="e.g. snack-shack (leave blank = default ${cfg.venue})"></div>
@@ -320,6 +334,10 @@ async function saveConfig() {
       updates[`PRINTER_${i}_PORT`] = port;
       const venue = $(`p${i}-venue`).value.trim();
       if (venue) updates[`PRINTER_${i}_VENUE`] = venue;
+      const mode = $(`p${i}-mode`).value;
+      if (mode) updates[`PRINTER_${i}_MODE`] = mode;
+      const copies = $(`p${i}-copies`).value;
+      if (copies) updates[`PRINTER_${i}_COPIES`] = copies;
     }
   }
   try {

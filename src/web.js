@@ -110,6 +110,7 @@ function saveConfig(updates) {
     ...Array.from({ length: 8 }, (_, i) => i + 1).flatMap((i) => [
       `PRINTER_${i}_NAME`, `PRINTER_${i}_KIND`,
       `PRINTER_${i}_PORT`, `PRINTER_${i}_HOST`, `PRINTER_${i}_UPSTREAM_PORT`, `PRINTER_${i}_ENABLED`,
+      `PRINTER_${i}_MODE`, `PRINTER_${i}_COPIES`, `PRINTER_${i}_VENUE`,
     ]),
     'PRINT_MODE', 'DUPLICATE_WINDOW_MS', 'ALWAYS_PRINT_ABOVE_EUR',
     'HETZNER_BASE_URL', 'LOG_LEVEL', 'WEB_PORT',
@@ -243,7 +244,7 @@ export function startWebGui() {
           'HETZNER_BASE_URL', 'LOG_LEVEL', 'WEB_PORT',
         ]);
         for (let i = 1; i <= 8; i++) {
-          for (const suf of ['NAME', 'KIND', 'PORT', 'HOST', 'UPSTREAM_PORT', 'ENABLED', 'VENUE']) {
+          for (const suf of ['NAME', 'KIND', 'PORT', 'HOST', 'UPSTREAM_PORT', 'ENABLED', 'VENUE', 'MODE', 'COPIES']) {
             allowed.add(`PRINTER_${i}_${suf}`);
           }
         }
